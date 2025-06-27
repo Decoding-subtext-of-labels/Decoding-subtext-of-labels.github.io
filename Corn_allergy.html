@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Barcode Ingredient Checker</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f9f9f9;
+      padding: 2em;
+      max-width: 600px;
+      margin: auto;
+    }
+    input, button {
+      font-size: 1em;
+      padding: 0.6em;
+      margin: 0.5em 0;
+      width: 100%;
+    }
+    .danger {
+      background-color: #ffe0e0;
+      color: #b30000;
+      font-weight: bold;
+    }
+    #result {
+      margin-top: 2em;
+    }
+    #cornList {
+      margin-top: 3em;
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 1em;
+    }
+  </style>
+</head>
+<body>
+  <h1>Barcode Ingredient Checker</h1>
+  <p>Enter a food barcode number:</p>
+  <input type="text" id="barcode" placeholder="e.g. 737628064502" />
+  <button onclick="checkBarcode()">Check Ingredients</button>
+
+  <div id="result"></div>
+
+  <div id="cornList">
+    <h3>⚠️ corn Ingredients We Flag</h3>
+    <ul id="ingredientList"></ul>
+  </div>
+
+  <script>
+    const cornIngredients = [
+      "Corn starch",
+      "Corn oil",
+      "High Fructose Corn Syrup",
+      "Dextrins",
+      "Dextrose",
+      "Fructose",
+      "Hydrol",
+      "Treacle",
+      "Ethonal",
+      "Maize",
+      "Zein",
+      "Sorbitol",
+      "Corn",
+      "Corn Syrup",
+      "CornStarch"
+    ];
+
+    // Show corn ingredients list
+    const ingredientList = document.getElementById("ingredientList");
+    cornIngredients.forEach(item => {
+      const li = document.createElement("li");
+      li.textContent = item;
+      ingredientList.appendChild(li);
+    });
+
+    async function checkBarcode() {
+      const barcode = document.getElementById("barcode").value.trim();
+      const resultDiv = document.getElementById("result");
+      resultDiv.innerHTML = "<p>Looking up product...</p>";
+
+      if (!barcode) {
+        resultDiv.innerHTML = "<p>Please enter a barcode.</p>";
+        return;
+      }
+
+      try {
+        const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+        const data = await res.json();
+
+        if (data.status !== 1) {
+          resultDiv.innerHTML = `<p>No product found for barcode <strong>${barcode}</strong>.</p>`;
+          return;
+        }
+
+        const product = data.product;
+        const ingredientsText = product.ingredients_text || "No ingredient list found.";
+
+        let highlighted = ingredientsText;
+        cornIngredients.forEach(term => {
+          const regex = new RegExp(`\\b(${term})\\b`, "gi");
+          highlighted = highlighted.replace(regex, `<span class="danger">$1</span>`);
+        });
+
+        const found = cornIngredients.filter(term =>
+          new RegExp(`\\b${term}\\b`, "i").test(ingredientsText)
+        );
+
+        let warningHTML = "";
+        if (found.length > 0) {
+          warningHTML = `
+            <p class="danger"><strong>⚠️ Unhealthy Ingredients Found:</strong> ${found.join(", ")}</p>
+          `;
+        }
+
+        resultDiv.innerHTML = `
+          <h2>${product.product_name || "Unnamed Product"}</h2>
+          ${warningHTML}
+          <p><strong>Ingredients:</strong></p>
+          <p>${highlighted}</p>
+        `;
+      } catch (err) {
+        console.error(err);
+        resultDiv.innerHTML = `<p>Error: Could not fetch product data. Try again.</p>`;
+      }
+    }
+  </script>
+</body>
+</html>
